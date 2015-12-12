@@ -6,6 +6,7 @@
   2001 10-03 : Version 1.01 -- Added SNG_set_quality().
   2004 05-23 : Version 1.10 -- Implemented GG stereo mode by RuRuRu
   2004 06-07 : Version 1.20 -- Improved the noise emulation.
+  2015 12-13 : Version 1.21 -- Changed own integer types to C99 stdint.h types.
 
   References: 
     SN76489 data sheet   
@@ -18,7 +19,7 @@
 #include <string.h>
 #include "emu76489.h"
 
-static e_uint32 voltbl[16] = {
+static uint32_t voltbl[16] = {
   0xff, 0xcb, 0xa1, 0x80, 0x65, 0x50, 0x40, 0x33, 0x28, 0x20, 0x19, 0x14, 0x10, 0x0c, 0x0a, 0x00
 };
 
@@ -30,32 +31,32 @@ internal_refresh (SNG * sng)
   if (sng->quality)
   {
     sng->base_incr = 1 << GETA_BITS;
-    sng->realstep = (e_uint32) ((1 << 31) / sng->rate);
-    sng->sngstep = (e_uint32) ((1 << 31) / (sng->clk / 16));
+    sng->realstep = (uint32_t) ((1 << 31) / sng->rate);
+    sng->sngstep = (uint32_t) ((1 << 31) / (sng->clk / 16));
     sng->sngtime = 0;
   }
   else
   {
-    sng->base_incr = (e_uint32) ((double) sng->clk * (1 << GETA_BITS) / (16 * sng->rate));
+    sng->base_incr = (uint32_t) ((double) sng->clk * (1 << GETA_BITS) / (16 * sng->rate));
   }
 }
 
-EMU76489_API void
-SNG_set_rate (SNG * sng, e_uint32 r)
+void
+SNG_set_rate (SNG * sng, uint32_t r)
 {
   sng->rate = r ? r : 44100;
   internal_refresh (sng);
 }
 
-EMU76489_API void
-SNG_set_quality (SNG * sng, e_uint32 q)
+void
+SNG_set_quality (SNG * sng, uint32_t q)
 {
   sng->quality = q;
   internal_refresh (sng);
 }
 
-EMU76489_API SNG *
-SNG_new (e_uint32 c, e_uint32 r)
+SNG *
+SNG_new (uint32_t c, uint32_t r)
 {
   SNG *sng;
 
@@ -70,7 +71,7 @@ SNG_new (e_uint32 c, e_uint32 r)
   return sng;
 }
 
-EMU76489_API void
+void
 SNG_reset (SNG * sng)
 {
   int i;
@@ -101,14 +102,14 @@ SNG_reset (SNG * sng)
   sng->stereo = 0xFF;
 }
 
-EMU76489_API void
+void
 SNG_delete (SNG * sng)
 {
   free (sng);
 }
 
-EMU76489_API void
-SNG_writeIO (SNG * sng, e_uint32 val)
+void
+SNG_writeIO (SNG * sng, uint32_t val)
 {
   if (val & 0x80)
   {
@@ -155,7 +156,7 @@ SNG_writeIO (SNG * sng, e_uint32 val)
   }
 }
 
-INLINE static int parity(int val) {
+static inline int parity(int val) {
 	val^=val>>8;
 	val^=val>>4;
 	val^=val>>2;
@@ -163,13 +164,13 @@ INLINE static int parity(int val) {
 	return val&1;
 };
 
-INLINE static e_int16
+static inline int16_t
 calc (SNG * sng)
 {
 
   int i;
-  e_uint32 incr;
-  e_int32 mix = 0;
+  uint32_t incr;
+  int32_t mix = 0;
 
   sng->base_count += sng->base_incr;
   incr = (sng->base_count >> GETA_BITS);
@@ -216,15 +217,15 @@ calc (SNG * sng)
     }
   }
 
-  return (e_int16) mix;
+  return (int16_t) mix;
 
 }
 
-EMU76489_API e_int16
+int16_t
 SNG_calc (SNG * sng)
 {
   if (!sng->quality)
-    return (e_int16) (calc (sng) << 4);
+    return (int16_t) (calc (sng) << 4);
   /* Simple rate converter */
   while (sng->realstep > sng->sngtime)
   {
@@ -235,16 +236,16 @@ SNG_calc (SNG * sng)
 
   sng->sngtime = sng->sngtime - sng->realstep;
 
-  return (e_int16) (sng->out << 4);
+  return (int16_t) (sng->out << 4);
 }
 
-INLINE static void
-calc_stereo (SNG * sng, e_int32 out[2])
+static inline void
+calc_stereo (SNG * sng, int32_t out[2])
 {
 
   int i;
-  e_uint32 incr;
-  e_int32 lmix =0, rmix = 0;
+  uint32_t incr;
+  int32_t lmix =0, rmix = 0;
 
   sng->base_count += sng->base_incr;
   incr = (sng->base_count >> GETA_BITS);
@@ -307,8 +308,8 @@ calc_stereo (SNG * sng, e_int32 out[2])
 
 }
 
-EMU76489_API void
-SNG_calc_stereo (SNG *sng, e_int32 out[2])
+void
+SNG_calc_stereo (SNG *sng, int32_t out[2])
 {
   if (!sng->quality) {
     calc_stereo (sng, out);
@@ -328,14 +329,14 @@ SNG_calc_stereo (SNG *sng, e_int32 out[2])
   }
 
   sng->sngtime = sng->sngtime - sng->realstep;
-  out[0] = (e_int16) (sng->out  << 4);
-  out[1] = (e_int16) (sng->out2 << 4);
+  out[0] = (int16_t) (sng->out  << 4);
+  out[1] = (int16_t) (sng->out2 << 4);
 
   return;
 }
 
-EMU76489_API void
-SNG_writeGGIO(SNG *sng, e_uint32 val)
+void
+SNG_writeGGIO(SNG *sng, uint32_t val)
 {
   sng->stereo = val;
 }

@@ -1,14 +1,6 @@
 #ifndef _EMU76489_H_
 #define _EMU76489_H_
-#include "emutypes.h"
-
-#ifdef EMU76489_DLL_EXPORTS
-  #define EMU76489_API __declspec(dllexport)
-#elif defined(EMU76489_DLL_IMPORTS)
-  #define EMU76489_API __declspec(dllimport)
-#else
-  #define EMU76489_API
-#endif
+#include "stdint.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,49 +8,49 @@ extern "C" {
 
 typedef struct __SNG {
 
-  e_int32 out ;
+  int32_t out ;
 
-  e_uint32 clk, rate, base_incr, quality ;
+  uint32_t clk, rate, base_incr, quality ;
 
-  e_uint32 count[3] ;
-  e_uint32 volume[3] ;
-  e_uint32 freq[3] ;
-  e_uint32 edge[3] ;
-  e_uint32 mute[3] ;
+  uint32_t count[3] ;
+  uint32_t volume[3] ;
+  uint32_t freq[3] ;
+  uint32_t edge[3] ;
+  uint32_t mute[3] ;
 
-  e_uint32 noise_seed ;
-  e_uint32 noise_count ;
-  e_uint32 noise_freq ;
-  e_uint32 noise_volume ;
-  e_uint32 noise_mode ;
-  e_uint32 noise_fref ;
+  uint32_t noise_seed ;
+  uint32_t noise_count ;
+  uint32_t noise_freq ;
+  uint32_t noise_volume ;
+  uint32_t noise_mode ;
+  uint32_t noise_fref ;
 
-  e_uint32 base_count ;
+  uint32_t base_count ;
 
 	/* rate converter */
-  e_uint32 realstep ;
-  e_uint32 sngtime ;
-  e_uint32 sngstep ;
+  uint32_t realstep ;
+  uint32_t sngtime ;
+  uint32_t sngstep ;
 
-  e_uint32 adr ;
+  uint32_t adr ;
 
-  e_uint32 stereo;
-  e_uint32 out2;
+  uint32_t stereo;
+  uint32_t out2;
 
 } SNG ;
 	
-EMU76489_API SNG *SNG_new(e_uint32 clk, e_uint32 rate) ;
-EMU76489_API void SNG_delete(SNG *) ;
-EMU76489_API void SNG_reset(SNG *) ;
-EMU76489_API void SNG_set_rate(SNG *,e_uint32 rate) ;
-EMU76489_API void SNG_set_quality(SNG *,e_uint32 q) ;
-EMU76489_API void SNG_writeIO(SNG *SNG, e_uint32 val) ;
-EMU76489_API e_uint8 SNG_readReg(SNG *, e_uint32 reg) ;
-EMU76489_API e_uint8 SNG_readIO(SNG *SNG) ;
-EMU76489_API e_int16 SNG_calc(SNG *) ;
-EMU76489_API void SNG_setVolumeMode(SNG *SNG, int type) ;
-EMU76489_API void SNG_calc_stereo(SNG *, e_int32 out[2]) ;
-EMU76489_API void SNG_writeGGIO(SNG *SNG, e_uint32 val) ;
+SNG *SNG_new(uint32_t clk, uint32_t rate) ;
+void SNG_delete(SNG *) ;
+void SNG_reset(SNG *) ;
+void SNG_set_rate(SNG *,uint32_t rate) ;
+void SNG_set_quality(SNG *,uint32_t q) ;
+void SNG_writeIO(SNG *SNG, uint32_t val) ;
+uint8_t SNG_readReg(SNG *, uint32_t reg) ;
+uint8_t SNG_readIO(SNG *SNG) ;
+int16_t SNG_calc(SNG *) ;
+void SNG_setVolumeMode(SNG *SNG, int type) ;
+void SNG_calc_stereo(SNG *, int32_t out[2]) ;
+void SNG_writeGGIO(SNG *SNG, uint32_t val) ;
 
 #ifdef __cplusplus
 }
