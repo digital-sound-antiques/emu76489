@@ -1,12 +1,13 @@
 /****************************************************************************
 
-  emu76489.c -- SN76489 emulator by Mitsutaka Okazaki 2001-2004
+  emu76489.c -- SN76489 emulator by Mitsutaka Okazaki 2001-2016
 
   2001 08-13 : Version 1.00
   2001 10-03 : Version 1.01 -- Added SNG_set_quality().
   2004 05-23 : Version 1.10 -- Implemented GG stereo mode by RuRuRu
   2004 06-07 : Version 1.20 -- Improved the noise emulation.
   2015 12-13 : Version 1.21 -- Changed own integer types to C99 stdint.h types.
+  2016 09-06 : Version 1.22 -- Support per-channel output.
 
   References: 
     SN76489 data sheet   
@@ -97,9 +98,9 @@ SNG_reset (SNG * sng)
   sng->noise_fref = 0;
 
   sng->out = 0;
-
-  sng->out2 = 0;
   sng->stereo = 0xFF;
+
+  sng->ch_out[0] = sng->ch_out[1] = sng->ch_out[2] = sng->ch_out[3] = 0;
 }
 
 void
@@ -164,13 +165,12 @@ static inline int parity(int val) {
 	return val&1;
 };
 
-static inline int16_t
-calc (SNG * sng)
+static inline void
+update_output (SNG * sng)
 {
 
   int i;
   uint32_t incr;
-  int32_t mix = 0;
 
   sng->base_count += sng->base_incr;
   incr = (sng->base_count >> GETA_BITS);
@@ -191,8 +191,11 @@ calc (SNG * sng)
       sng->noise_count -= sng->noise_freq;
   }
 
-  if (sng->noise_seed & 1)
-    mix = voltbl[sng->noise_volume];
+  if (sng->noise_seed & 1) 
+  {
+    sng->ch_out[3] += voltbl[sng->noise_volume] << 4;
+  }
+  sng->ch_out[3] >>= 1;
 
   /* Tone */
   for (i = 0; i < 3; i++)
@@ -213,98 +216,63 @@ calc (SNG * sng)
 
     if (sng->edge[i] && !sng->mute[i])
     {
-      mix += voltbl[sng->volume[i]];
+      sng->ch_out[i] += voltbl[sng->volume[i]] << 4;
     }
+
+    sng->ch_out[i] >>= 1;
   }
 
-  return (int16_t) mix;
+}
 
+static inline int16_t
+mix_output (SNG * sng) 
+{
+  sng->out = sng->ch_out[0] + sng->ch_out[1] + sng->ch_out[2] + sng->ch_out[3];
+  return (int16_t) sng->out;
 }
 
 int16_t
 SNG_calc (SNG * sng)
 {
-  if (!sng->quality)
-    return (int16_t) (calc (sng) << 4);
+  if (!sng->quality) {
+    update_output(sng);
+    return mix_output(sng);
+  }
+
   /* Simple rate converter */
   while (sng->realstep > sng->sngtime)
   {
     sng->sngtime += sng->sngstep;
-    sng->out += calc (sng);
-    sng->out >>= 1;
+    update_output(sng);
   }
 
   sng->sngtime = sng->sngtime - sng->realstep;
 
-  return (int16_t) (sng->out << 4);
+  return mix_output(sng);
 }
 
-static inline void
-calc_stereo (SNG * sng, int32_t out[2])
+static inline void 
+mix_output_stereo (SNG * sng, int32_t out[2])
 {
-
   int i;
-  uint32_t incr;
-  int32_t lmix =0, rmix = 0;
 
-  sng->base_count += sng->base_incr;
-  incr = (sng->base_count >> GETA_BITS);
-  sng->base_count &= (1 << GETA_BITS) - 1;
-
-  /* Noise */
-  sng->noise_count += incr;
-  if (sng->noise_count & 0x100)
-  {
-    if (sng->noise_mode) /* White */
-      sng->noise_seed = (sng->noise_seed>>1) | (parity(sng->noise_seed&0x0009)<<15);
-    else                 /* Periodic */
-      sng->noise_seed = (sng->noise_seed>>1) | ((sng->noise_seed&1)<<15);
-    if(sng->noise_fref)
-      sng->noise_count -= sng->freq[2];
-    else
-      sng->noise_count -= sng->noise_freq;
+  out[0] = out[1] = 0;
+  if((sng->stereo>>4)&0x08) {
+    out[0] += sng->ch_out[3];
+  }
+  if(sng->stereo & 0x08) {
+    out[1] += sng->ch_out[3];
   }
 
-  if (sng->noise_seed & 1) {
-    if (sng->stereo >>4 & 0x08) {
-      lmix = voltbl[sng->noise_volume];
-	}
-    if (sng->stereo & 0x08) {
-      rmix = voltbl[sng->noise_volume];
-    }
-  }
-
-  /* Tone */
   for (i = 0; i < 3; i++)
   {
-    sng->count[i] += incr;
-    if (sng->count[i] & 0x400)
-    {
-      if (sng->freq[i] > 1)
-      {
-        sng->edge[i] = !sng->edge[i];
-        sng->count[i] -= sng->freq[i];
-      }
-      else
-      {
-        sng->edge[i] = 1;
-      }
+    if ((sng->stereo >> (i+4)) & 0x01) {
+      out[0] += sng->ch_out[i];
     }
-
-    if (sng->edge[i] && !sng->mute[i])
-    {
-      if (sng->stereo >> (i+4) & 0x01) {
-        lmix += voltbl[sng->volume[i]];
-	  }
-      if (sng->stereo >> i & 0x01) {
-        rmix += voltbl[sng->volume[i]];
-      }
+    if ((sng->stereo >> i) & 0x01) {
+      out[1] += sng->ch_out[i];
     }
   }
-
-  out[0] = lmix;
-  out[1] = rmix;
-  return;
 
 }
 
@@ -312,26 +280,19 @@ void
 SNG_calc_stereo (SNG *sng, int32_t out[2])
 {
   if (!sng->quality) {
-    calc_stereo (sng, out);
-    out[0] = out[0] << 4;
-    out[1] = out[1] << 4;
+    update_output(sng);
+    mix_output_stereo(sng,out);
     return;
   }
 
   while (sng->realstep > sng->sngtime)
   {
     sng->sngtime += sng->sngstep;
-    calc_stereo(sng, out);
-    sng->out  += out[0];
-    sng->out2 += out[1];
-    sng->out  >>= 1;
-    sng->out2 >>= 1;
+    update_output(sng);
   }
 
   sng->sngtime = sng->sngtime - sng->realstep;
-  out[0] = (int16_t) (sng->out  << 4);
-  out[1] = (int16_t) (sng->out2 << 4);
-
+  mix_output_stereo(sng,out);
   return;
 }
 

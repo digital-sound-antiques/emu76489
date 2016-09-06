@@ -35,7 +35,8 @@ typedef struct __SNG {
   uint32_t adr ;
 
   uint32_t stereo;
-  uint32_t out2;
+
+  int16_t ch_out[4];
 
 } SNG ;
 	
