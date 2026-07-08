@@ -301,3 +301,11 @@ SNG_writeGGIO(SNG *sng, uint32_t val)
 {
   sng->stereo = val;
 }
+
+int SNG_save_state(SNG *sng, uint8_t *out) {
+  if (out) memcpy(out, sng, sizeof(SNG));
+  return (int)sizeof(SNG);
+}
+void SNG_load_state(SNG *sng, const uint8_t *in, int size) {
+  if (size >= (int)sizeof(SNG)) memcpy(sng, in, sizeof(SNG)); /* scalar-only state */
+}

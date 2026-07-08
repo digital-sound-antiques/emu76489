@@ -52,6 +52,8 @@ int16_t SNG_calc(SNG *) ;
 void SNG_setVolumeMode(SNG *SNG, int type) ;
 void SNG_calc_stereo(SNG *, int32_t out[2]) ;
 void SNG_writeGGIO(SNG *SNG, uint32_t val) ;
+int SNG_save_state(SNG *, uint8_t *out) ; /* save state to out; out=NULL -> required size */
+void SNG_load_state(SNG *, const uint8_t *in, int size) ;
 
 #ifdef __cplusplus
 }
